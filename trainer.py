@@ -140,10 +140,10 @@ class Trainer(object):
 
         rec_loss = unreduced_rec_loss.mean()
         commitment_loss = sum(commitment_loss)
-
+        print(rec_loss, commitment_loss)
         loss = rec_loss + commitment_loss
 
-        self.scaler.scale(loss).backward()
+        self.scaler.scale(loss.squeeze()).backward()
         self.scaler.step(self.opt)
         self.scaler.update()
 
