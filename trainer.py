@@ -134,6 +134,7 @@ class Trainer(object):
             with autocast():
                 l = [[],[]]
                 for x in self.val_data:
+                    x = x.unsqueeze(1).to(self.p.device)
                     rec, (commitment_loss, _, _) = self.model(x)
                     rec = torch.tanh(rec)
                     rec_cyl, x_cyl = map(self.pre_loss_f, (rec, x))
