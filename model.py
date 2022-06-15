@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 
-from utils import Encoder, Decoder, PreActFixupResBlock, EvonormResBlock
+from utils import Encoder, Decoder, PreActFixupResBlock, EvonormResBlock, FixupResBlock
 
 
 
