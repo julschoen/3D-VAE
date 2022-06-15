@@ -143,7 +143,7 @@ class Trainer(object):
 
         loss = rec_loss + commitment_loss
 
-        self.scaler.scale(loss)
+        self.scaler.scale(loss).backward()
         self.scaler.step(self.opt)
         self.scaler.update()
 
