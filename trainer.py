@@ -52,13 +52,10 @@ class Trainer(object):
 
         ### Make Data Generator ###
         self.generator_train = DataLoader(dataset, batch_size=self.p.batch_size, shuffle=True, num_workers=4, drop_last=True)
-        self.pre_loss_f = ExtractCenterCylinder() if args.extract_center_cylinder else None
+        self.pre_loss_f = ExtractCenterCylinder()
 
         ### Prep Training
-        self.fixed_test_noise = None
-        self.img_list = []
-        self.G_losses = []
-        self.D_losses = []
+        self.losses = []
         self.fid = []
         self.fid_epoch = []
 
