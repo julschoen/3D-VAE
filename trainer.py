@@ -97,8 +97,7 @@ class Trainer(object):
             self.opt.load_state_dict(state_dict['opt'])
             self.model.load_state_dict(state_dict['model'])
 
-            self.G_losses = state_dict['lossG']
-            self.D_losses = state_dict['lossD']
+            self.losses = state_dict['loss']
             self.fid_epoch = state_dict['fid']
             print('starting from step {}'.format(step))
         return step
@@ -108,8 +107,7 @@ class Trainer(object):
         'step': step,
         'model': self.model.state_dict(),
         'opt': self.opt.state_dict(),
-        'lossG': self.G_losses,
-        'lossD': self.D_losses,
+        'loss': self.losses,
         'fid': self.fid_epoch,
         }, os.path.join(self.models_dir, 'checkpoint.pt'))
 
