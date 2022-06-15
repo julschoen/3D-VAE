@@ -130,7 +130,7 @@ class Trainer(object):
         self.save_checkpoint(step)
 
     def val_step(self):
-        with torch.no_grad()
+        with torch.no_grad():
             with autocast():
                 l = [[],[]]
                 for x in self.val_data:
