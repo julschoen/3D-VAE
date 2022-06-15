@@ -1,9 +1,4 @@
-from functools import partial
-from typing import Tuple
-from argparse import ArgumentParser, Namespace
-
 import torch
-import torch.nn.functional as F
 from torch import nn
 
 from utils import Encoder, Decoder, PreActFixupResBlock
@@ -36,8 +31,6 @@ class VQVAE(nn.Module):
             + self.n_post_upscale_blocks * n_down
             + 1 # pre-activation block
         )
-
-        self.pre_loss_f = ExtractCenterCylinder() if args.extract_center_cylinder else None
 
         self.encoder = Encoder(
             in_channels=self.input_channels,
