@@ -134,9 +134,9 @@ class Trainer(object):
             rec, (commitment_loss, *_) = self.model(x)
             rec = F.tanh(rec)
 
-        rec, x = map(self.pre_loss_f, (rec, x))
+        rec_cyl, x_cyl = map(self.pre_loss_f, (rec, x))
 
-        unreduced_rec_loss = F.smooth_l1_loss(rec, x, reduction='none')
+        unreduced_rec_loss = F.smooth_l1_loss(rec_cyl, x_cyl, reduction='none')
 
         rec_loss = unreduced_rec_loss.mean()
         commitment_loss = sum(commitment_loss).mean()
