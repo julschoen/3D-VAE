@@ -158,7 +158,7 @@ class Trainer(object):
 
         print("Starting Training...")
         for i in range(step_done, self.p.niters):
-            data = next(gen)
+            data = next(gen).unsqueeze(1)
             rec, rec_loss, commitment_loss = self.train_step(data.to(self.p.device))
             self.losses.append((rec_loss, commitment_loss))
 
