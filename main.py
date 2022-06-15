@@ -8,7 +8,7 @@ def main():
 	parser.add_argument('--batch_size', type=int, default=16, help='Batch size')
 	parser.add_argument('--z_size', type=int, default=32, help='Latent space dimension')
 	parser.add_argument('--lr', type=float, default=1e-4, help='Learning rate G')
-	parser.add_argument('--data_path', type=str, default='../3D-GAN/data/train_lidc_128.npz',help='Path to data.')
+	parser.add_argument('--data_path', type=str, default='../3D-GAN/train_lidc_128.npz',help='Path to data.')
 	parser.add_argument('--ngpu', type=int, default=2, help='Number of GPUs')
 	parser.add_argument('--steps_per_log', type=int, default=10, help='Output Iterations')
 	parser.add_argument('--steps_per_img_log', type=int, default=50, help='Image Save Iterations')
