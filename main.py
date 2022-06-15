@@ -15,6 +15,7 @@ def main():
 	parser.add_argument('--steps_per_img_log', type=int, default=50, help='Image Save Iterations')
 	parser.add_argument('--log_dir', type=str, default='log', help='Save Location')
 	parser.add_argument('--device', type=str, default='cuda', help='Torch Device Choice')
+	parser.add_argument('--res', type=int, default=0, help='ResBlock type')
 	parser.add_argument('--load_params', type=bool, default=False, help='Load Parameters form pickle in log dir')
 	params = parser.parse_args()
 	print(params)

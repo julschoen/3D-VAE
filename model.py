@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 
-from utils import Encoder, Decoder, PreActFixupResBlock
+from utils import Encoder, Decoder, PreActFixupResBlock, EvonormResBlock
 
 
 
@@ -18,7 +18,12 @@ class VQVAE(nn.Module):
         self.n_post_downscale_blocks = 0
         self.n_post_upscale_blocks = 0
         self.num_embeddings = [self.p.z_size for _ in range(self.n_bottleneck_blocks)]
-        self.resblock = PreActFixupResBlock
+        if self.p.res == 0:
+            self.resblock = PreActFixupResBlock
+        elif self.p.res == 1:
+            self.resblock = FixupResBlock
+        else:
+            self.resblock = EvonormResBlock
         self.n_post_quantization_blocks = 0
         # num_layers is defined as the longest path through the model
         n_down = self.n_bottleneck_blocks * self.n_blocks_per_bottleneck
