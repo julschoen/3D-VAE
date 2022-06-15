@@ -149,7 +149,7 @@ class Trainer(object):
 
         for p in self.model.parameters():
             p.requires_grad = False
-
+        print(rec.shape, x.shape)
         return rec.detach(), rec_loss.item(), commitment_loss.item()
 
     def train(self):
