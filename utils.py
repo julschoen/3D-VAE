@@ -1,5 +1,5 @@
 from itertools import chain
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union
 from math import sqrt
 import numpy as np
 
