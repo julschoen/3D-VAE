@@ -20,7 +20,7 @@ from utils import ExtractCenterCylinder
 
 
 class Trainer(object):
-    def __init__(self, dataset, params):
+    def __init__(self, dataset, val_data, params):
         ### Misc ###
         self.device = params.device
 
@@ -53,10 +53,12 @@ class Trainer(object):
 
         ### Make Data Generator ###
         self.generator_train = DataLoader(dataset, batch_size=self.p.batch_size, shuffle=True, num_workers=4, drop_last=True)
+        self.val_data = DataLoader(val_data, batch_size=self.p.batch_size, shuffle=True, num_workers=4, drop_last=True)
         self.pre_loss_f = ExtractCenterCylinder()
 
         ### Prep Training
         self.losses = []
+        self.val_losses = []
         self.fid = []
         self.fid_epoch = []
 
@@ -75,9 +77,10 @@ class Trainer(object):
                 )
         
         rec, com = self.losses[-1]
+        v_rec, v_com = self.val_losses[-1]
 
-        print('[%d/%d]\tReconstruction Loss: %.4f\tCommitment Loss: %.4f\tFID %.4f'
-                    % (step, self.p.niters, rec, com, self.fid[-1]))
+        print('[%d/%d]\tReconstruction Loss: %.4f\tCommitment Loss: %.4f\t Val: %.4f|%.4f\tFID %.4f'
+                    % (step, self.p.niters, rec, com, v_rec, v_com, self.fid[-1]))
 
     def log_interpolation(self, step, data, rec):
         torchvision.utils.save_image(
@@ -98,6 +101,7 @@ class Trainer(object):
             self.model.load_state_dict(state_dict['model'])
 
             self.losses = state_dict['loss']
+            self.val_lossses = state_dict['val']
             self.fid_epoch = state_dict['fid']
             print('starting from step {}'.format(step))
         return step
@@ -108,11 +112,13 @@ class Trainer(object):
         'model': self.model.state_dict(),
         'opt': self.opt.state_dict(),
         'loss': self.losses,
+        'val': self.val_losses,
         'fid': self.fid_epoch,
         }, os.path.join(self.models_dir, 'checkpoint.pt'))
 
     def log(self, step, data, rec):
         if step % self.p.steps_per_log == 0:
+            self.val_step()
             self.log_train(step, data, rec)
 
         if step % self.p.steps_per_img_log == 0:
@@ -122,6 +128,26 @@ class Trainer(object):
         self.log_train(step, data, rec)
         self.log_interpolation(step)
         self.save_checkpoint(step)
+
+    def val_step(self):
+        with torch.no_grad()
+            with autocast():
+                l = [[],[]]
+                for x in self.val_data:
+                    rec, (commitment_loss, _, _) = self.model(x)
+                    rec = torch.tanh(rec)
+                    rec_cyl, x_cyl = map(self.pre_loss_f, (rec, x))
+
+                    unreduced_rec_loss = F.smooth_l1_loss(rec_cyl, x_cyl, reduction='none')
+
+                    rec_loss = unreduced_rec_loss.mean()
+                    commitment_loss = sum(commitment_loss).mean()
+
+                    l[0].append(rec_loss.item())
+                    l[1].append(commitment_loss.item())
+
+
+        self.val_losses.append(tuple(np.mean(l, axis=1)))
 
     def train_step(self, x):
         for p in self.model.parameters():
