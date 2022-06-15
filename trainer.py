@@ -47,7 +47,7 @@ class Trainer(object):
         if self.p.ngpu > 1:
             self.model = nn.DataParallel(self.model,device_ids=list(range(self.p.ngpu)))
 
-        self.opt = optim.Adam(self.model.parameters(), lr=self.p.lrD, betas=(0., 0.9))
+        self.opt = optim.Adam(self.model.parameters(), lr=self.p.lr, betas=(0., 0.9))
         self.scaler = GradScaler()
 
         ### Make Data Generator ###

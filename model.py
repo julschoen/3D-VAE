@@ -17,7 +17,7 @@ class VQVAE(nn.Module):
         self.n_pre_quantization_blocks = 0
         self.n_post_downscale_blocks = 0
         self.n_post_upscale_blocks = 0
-        self.num_embeddings = [32 for _ in range(self.n_bottleneck_blocks)]
+        self.num_embeddings = [self.p.z_size for _ in range(self.n_bottleneck_blocks)]
         self.resblock = PreActFixupResBlock
         self.n_post_quantization_blocks = 0
         # num_layers is defined as the longest path through the model
