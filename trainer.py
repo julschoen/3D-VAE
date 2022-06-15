@@ -133,7 +133,7 @@ class Trainer(object):
         with autocast():
             rec, (commitment_loss, q,_) = self.model(x)
             rec = F.tanh(rec)
-        print(q.shape)
+        print(q)
         rec_cyl, x_cyl = map(self.pre_loss_f, (rec, x))
 
         unreduced_rec_loss = F.smooth_l1_loss(rec_cyl, x_cyl, reduction='none')
