@@ -1,14 +1,13 @@
 from itertools import chain
-from typing import List, Optional, Tuple, Union
-from math import sqrt
 import numpy as np
 
 import torch
-import torch.nn.functional as F
 from torch import nn
+import torch.nn.functional as F
+
 
 class ExtractCenterCylinder(nn.Module):
-    def __init__(self, size: Union[Tuple[int, int], None] = None, cache_mask: bool = True):
+    def __init__(self, size = None, cache_mask = True):
         super(ExtractCenterCylinder, self).__init__()
         self.mask = self.create_cylinder_xy_mask(size) if size else None
         self.cache_mask = cache_mask
@@ -38,7 +37,7 @@ class ExtractCenterCylinder(nn.Module):
             return tensor[..., mask, :]
 
     @staticmethod
-    def create_cylinder_xy_mask(size: Tuple[int, int]) -> torch.Tensor:
+    def create_cylinder_xy_mask(size):
         x_size, y_size = size
 
         radius = min(x_size, y_size) / 2
@@ -50,164 +49,6 @@ class ExtractCenterCylinder(nn.Module):
         mask = dist_from_center <= radius
 
         return torch.BoolTensor(mask)
-
-
-def determine_num_groups(in_channels, preferred_channels_per_group=8):
-    return max(in_channels // preferred_channels_per_group, 1)
-
-
-def group_std(x: torch.Tensor, groups: Optional[int] = None, eps=1e-5): # type: ignore
-    b, c, *dims = x.size()
-    assert len(dims) >= 1
-
-    if groups is None:
-        groups = determine_num_groups(c, preferred_channels_per_group=8)
-
-    x_g = torch.reshape(x, (b, groups, c // groups, *dims))
-
-    var = torch.var(x_g, dim=tuple(torch.arange(2, x.dim()+1)), keepdim=True)
-    std = torch.sqrt(var + eps)
-
-    std = std.expand(-1, -1,  c // groups, *(-1 for _ in dims)).reshape(1, c, *(1 for _ in dims))
-
-    return std
-
-
-class SiLUVelocityFunc(torch.autograd.Function):
-
-    @staticmethod
-    def forward(ctx, x: torch.Tensor, v: torch.Tensor) -> torch.Tensor: # type: ignore
-        ctx.save_for_backward(x, v)
-        return x * torch.sigmoid(x*v)
-
-    @staticmethod
-    def backward(ctx, grad_output: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]: # type: ignore
-        x, v = ctx.saved_tensors
-
-        xv = x*v
-        sigmoid_xv = torch.sigmoid(xv)
-        d_sigmoid = sigmoid_xv * (1 - sigmoid_xv)
-
-        d_x = grad_output * (sigmoid_xv + xv * d_sigmoid)
-        d_v = grad_output * (x**2 * d_sigmoid)
-
-        return d_x, d_v
-
-
-class SiLUVelocity(nn.Module):
-    '''
-    Performs `x * torch.sigmoid(v*x)`
-    x, v need to be broadcastable w.r.t.
-    '''
-    def forward(self, x, v):
-        return SiLUVelocityFunc.apply(x, v)
-
-
-class EvoNorm3DS0(nn.Module):
-    '''assumes non-linear, affine transformed EvoNorm S0'''
-    def __init__(self, in_channels):
-        super().__init__()
-
-        self.silu_v = SiLUVelocity()
-
-        self.v = nn.Parameter(torch.ones((in_channels, 1, 1, 1)))
-        self.gamma = nn.Parameter(torch.zeros((in_channels, 1, 1, 1)))
-        self.beta = nn.Parameter(torch.zeros((in_channels, 1, 1, 1)))
-
-    def forward(self, x):
-        assert x.dim() == 5
-
-        num = self.silu_v(x, self.v)
-        std = group_std(x)
-
-        return num * self.gamma / std + self.beta
-
-
-class EvonormResBlock(nn.Module):
-    # Adapted from:
-    # https://github.com/hongyi-zhang/Fixup/blob/master/imagenet/models/fixup_resnet_imagenet.py#L20
-
-    def __init__(self, in_channels, out_channels, mode, bottleneck_divisor=4):
-        super().__init__()
-
-        assert mode in ("down", "same", "up", "out")
-        if mode == 'out':
-            mode = 'same'
-        self.mode = mode
-
-        branch_channels = max(max(in_channels, out_channels) // bottleneck_divisor, 1)
-
-        if mode == 'down':
-            conv = nn.Conv3d
-            kernel_size, stride, padding = 4, 2, 1
-        elif mode in ('same', 'out'):
-            conv = nn.Conv3d
-            kernel_size, stride, padding = 3, 1, 1
-        elif mode == 'up':
-            conv = ResizeConv3D
-            kernel_size, stride, padding = 3, 1, 1
-
-        self.evonorm_1 = EvoNorm3DS0(in_channels)
-        self.branch_conv1 = nn.Conv3d(
-            in_channels=in_channels,
-            out_channels=branch_channels,
-            kernel_size=1,
-            stride=1,
-            padding=0,
-        )
-
-        self.evonorm_2 = EvoNorm3DS0(branch_channels)
-        self.branch_conv2 = conv(
-            in_channels=branch_channels,
-            out_channels=branch_channels,
-            kernel_size=kernel_size,
-            stride=stride,
-            padding=padding,
-        )
-
-        self.evonorm_3 = EvoNorm3DS0(branch_channels)
-        self.branch_conv3 = nn.Conv3d(
-            in_channels=branch_channels,
-            out_channels=out_channels,
-            kernel_size=1,
-            stride=1,
-            padding=0,
-        )
-
-        self.skip_conv = conv(
-            in_channels=in_channels,
-            out_channels=out_channels,
-            kernel_size=(1 if mode != 'down' else 2),
-            stride=(1 if mode != 'down' else 2),
-            padding=(0 if mode != 'down' else 0),
-        ) if not (mode in ("same", "out") and in_channels == out_channels) else None
-
-        self.initialize_weights()
-
-    def forward(self, input: torch.Tensor):
-
-        out = self.branch_conv1(self.evonorm_1(input))
-        out = self.branch_conv2(self.evonorm_2(out))
-        out = self.branch_conv3(self.evonorm_3(out))
-
-        out = out + (input if self.skip_conv is None else self.skip_conv(input))
-
-        return out
-
-    @torch.no_grad()
-    def initialize_weights(self):
-
-        # branch_conv1
-        for weight in (
-            self.branch_conv1.weight,
-            self.branch_conv2.weight,
-            self.branch_conv3.weight
-        ):
-            nn.init.kaiming_normal_(weight)
-
-        if self.skip_conv is not None:
-            nn.init.xavier_normal_(self.skip_conv.weight)
-            nn.init.zeros_(self.skip_conv.bias)
 
 
 class PreActFixupResBlock(nn.Module):
@@ -560,7 +401,7 @@ class Encoder(nn.Module):
         self,
         in_channels,
         base_network_channels,
-        num_embeddings: List[int],
+        num_embeddings,
         n_enc=3,
         n_down_per_enc=2,
         n_pre_q_blocks=0,
