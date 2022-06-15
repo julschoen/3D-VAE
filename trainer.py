@@ -139,11 +139,11 @@ class Trainer(object):
         unreduced_rec_loss = F.smooth_l1_loss(rec, x, reduction='none')
 
         rec_loss = unreduced_rec_loss.mean()
-        commitment_loss = sum(commitment_loss)
-        print(rec_loss, commitment_loss)
+        commitment_loss = sum(commitment_loss.flatten())
+
         loss = rec_loss + commitment_loss
 
-        self.scaler.scale(loss.squeeze()).backward()
+        self.scaler.scale(loss).backward()
         self.scaler.step(self.opt)
         self.scaler.update()
 
