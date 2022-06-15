@@ -137,7 +137,7 @@ class Trainer(object):
         rec, x = map(self.pre_loss_f, (rec, x))
 
         unreduced_rec_loss = F.smooth_l1_loss(rec, x, reduction='none')
-
+        print(commitment_loss)
         rec_loss = unreduced_rec_loss.mean()
         commitment_loss = sum(commitment_loss.flatten())
 
