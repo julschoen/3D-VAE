@@ -6,6 +6,7 @@ import pickle
 import torch 
 import torch.optim as optim
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from torch.autograd import Variable, grad
 from torch.cuda.amp import autocast, GradScaler
