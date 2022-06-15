@@ -448,7 +448,7 @@ class Encoder(nn.Module):
                   for _ in range(n_pre_q_blocks))
             ))
             self.quantize.append(
-                Quantizer(num_embeddings=num_embeddings[i], embedding_dim=embedding_dim, commitment_cost=0.1)
+                Quantizer(num_embeddings=num_embeddings[i], embedding_dim=embedding_dim, commitment_cost=0.25)
             )
 
             before_channels = after_channels
