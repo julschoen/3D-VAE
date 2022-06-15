@@ -5,17 +5,40 @@ from argparse import ArgumentParser, Namespace
 import torch
 import torch.nn.functional as F
 from torch import nn
-from torch.distributions.normal import Normal
 
-from vqvae.layers import Encoder, Decoder, FixupResBlock, PreActFixupResBlock, EvonormResBlock, ExtractCenterCylinder
+from utils import Encoder, Decoder, PreActFixupResBlock
 
-from utils.argparse_helpers import booltype
 
 
 
 class VQVAE(nn.Module):
-    def __init__(self, args: Namespace):
+    def __init__(self, params):
         super(VQVAE, self).__init__()
+        self.p = params
+        self.input_channels = 1
+        self.base_network_channels = 4
+        self.n_bottleneck_blocks = 3
+        self.n_blocks_per_bottleneck = 2
+        self.n_pre_quantization_blocks = 0
+        self.n_post_downscale_blocks = 0
+        self.n_post_upscale_blocks = 0
+        self.num_embeddings = [32 for _ in range(self.n_bottleneck_blocks)]
+        self.resblock = PreActFixupResBlock
+        self.n_post_quantization_blocks = 0
+        # num_layers is defined as the longest path through the model
+        n_down = self.n_bottleneck_blocks * self.n_blocks_per_bottleneck
+        self.num_layers = (
+            2 # input + output layer
+            + 2 * n_down # down and up
+            + self.n_pre_quantization_blocks
+            + self.n_post_quantization_blocks
+            + self.n_post_downscale_blocks * n_down
+            + self.n_post_upscale_blocks * n_down
+            + 1 # pre-activation block
+        )
+
+        self.pre_loss_f = ExtractCenterCylinder() if args.extract_center_cylinder else None
+
         self.encoder = Encoder(
             in_channels=self.input_channels,
             base_network_channels=self.base_network_channels,
@@ -29,7 +52,7 @@ class VQVAE(nn.Module):
 
         )
         self.decoder = Decoder(
-            out_channels=self.output_channels,
+            out_channels=self.input_channels,
             base_network_channels=self.base_network_channels,
             n_enc=self.n_bottleneck_blocks,
             n_up_per_enc=self.n_blocks_per_bottleneck,
@@ -55,42 +78,3 @@ class VQVAE(nn.Module):
 
     def decode(self, quantizations):
         return self.decoder(quantizations)
-
-
-    def _parse_input_args(self, args: Namespace):
-        assert args.metric in self.supported_metrics
-
-    
-
-        self.input_channels = args.input_channels
-        self.output_channels = args.input_channels
-        self.base_network_channels = args.base_network_channels
-        self.n_bottleneck_blocks = args.n_bottleneck_blocks
-        self.n_blocks_per_bottleneck = args.n_downscales_per_bottleneck
-        self.n_pre_quantization_blocks = args.n_pre_quantization_blocks
-        self.n_post_quantization_blocks = args.n_post_quantization_blocks
-        self.n_post_upscale_blocks = args.n_post_upscale_blocks
-        self.n_post_downscale_blocks = args.n_post_downscale_blocks
-
-        assert len(args.num_embeddings) in (1, args.n_bottleneck_blocks)
-        if len(args.num_embeddings) == 1:
-            self.num_embeddings = [args.num_embeddings[0] for _ in range(args.n_bottleneck_blocks)]
-        else:
-            self.num_embeddings = args.num_embeddings
-
-        resblocks = {'regular': FixupResBlock, 'pre-activation': PreActFixupResBlock, 'evonorm': EvonormResBlock}
-        self.resblock = resblocks['pre-activation']
-
-        # num_layers is defined as the longest path through the model
-        n_down = args.n_bottleneck_blocks * args.n_downscales_per_bottleneck
-        self.num_layers = (
-            2 # input + output layer
-            + 2 * n_down # down and up
-            + args.n_pre_quantization_blocks
-            + args.n_post_quantization_blocks
-            + args.n_post_downscale_blocks * n_down
-            + args.n_post_upscale_blocks * n_down
-            + 1 # pre-activation block
-        )
-
-        self.pre_loss_f = ExtractCenterCylinder() if args.extract_center_cylinder else None
