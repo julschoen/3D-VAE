@@ -615,14 +615,19 @@ class Encoder(nn.Module):
 
     def forward(self, data):
         down = self.parse_input(data)
-        downsampled = ((down := downblock(down)) for downblock in self.down)
+        downsampled = []
+        for downblock in self.down:
+            down = downblock(down)
+            downsampled.append(down)
+
 
         aux = None
         quantizations = []
         for down, pre_quantize, pre_quantize_cond, quantize in reversed(list(zip(downsampled, self.pre_quantize, self.pre_quantize_cond, self.quantize))):
-            quantizations.append((quantization := quantize(pre_quantize(pre_quantize_cond(down, aux)))))
 
-            _, aux, *_ = quantization
+            quantizations.append(quantize(pre_quantize(pre_quantize_cond(down, aux))))
+
+            _, aux, *_ = quantizations[-1]
 
         return reversed(quantizations)
 
