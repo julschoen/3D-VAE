@@ -56,7 +56,7 @@ class VQVAE(nn.Module):
 
 
         def init_fixupresblock(layer):
-            if isinstance(layer, FixupResBlock) or isinstance(layer, PreActFixupResBlock):
+            if isinstance(layer, PreActFixupResBlock): #isinstance(layer, FixupResBlock) or 
                 layer.initialize_weights(num_layers=self.num_layers)
         self.apply(init_fixupresblock)
 
