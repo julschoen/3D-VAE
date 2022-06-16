@@ -6,7 +6,7 @@ def main():
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--niters', type=int, default=5000, help='Number of training iterations')
 	parser.add_argument('--batch_size', type=int, default=16, help='Batch size')
-	parser.add_argument('--z_size', type=int, default=32, help='Latent space dimension')
+	parser.add_argument('--z_size', type=int, default=512, help='Latent space dimension')
 	parser.add_argument('--lr', type=float, default=1e-4, help='Learning rate G')
 	parser.add_argument('--data_path', type=str, default='../3D-GAN/train_lidc_128.npz',help='Path to data.')
 	parser.add_argument('--val_path', type=str, default='../3D-GAN/test_lidc_128.npz',help='Path to validation data.')
