@@ -340,7 +340,7 @@ class Encoder(nn.Module):
 
             assert after_channels % 8 == 0
             # Codebook dimension (1=2, 2=8)
-            embedding_dim = 64#after_channels // 8
+            embedding_dim = after_channels // 8
 
             self.pre_quantize_cond.append(
                 PreQuantizationConditioning(
