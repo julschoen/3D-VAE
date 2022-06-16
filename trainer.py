@@ -159,12 +159,12 @@ class Trainer(object):
         with autocast():
             rec, (commitment_loss, q,_) = self.model(x)
             rec = torch.tanh(rec)
-        rec_cyl, x_cyl = map(self.pre_loss_f, (rec, x))
+            rec_cyl, x_cyl = map(self.pre_loss_f, (rec, x))
 
-        unreduced_rec_loss = torch.log(self.loss(rec_cyl, x_cyl))
+            unreduced_rec_loss = torch.log(self.loss(rec_cyl, x_cyl))
 
-        rec_loss = unreduced_rec_loss.mean()
-        commitment_loss = sum(commitment_loss).mean()
+            rec_loss = unreduced_rec_loss.mean()
+            commitment_loss = sum(commitment_loss).mean()
 
         loss = rec_loss + commitment_loss
 
