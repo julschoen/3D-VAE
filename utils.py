@@ -218,12 +218,13 @@ class PreQuantizationConditioning(nn.Module):
         self,
         in_channels,
         out_channels,
+        has_aux,
         n_up=2,
         resblock=FixupResBlock,
         n_post_upscale_blocks=0,
     ):
         super().__init__()
-        self.has_aux = in_channels - out_channels * 8 != 0
+        self.has_aux = has_aux#in_channels - out_channels * 8 != 0
 
         if self.has_aux:
             self.upsample = UpBlock(
@@ -340,12 +341,13 @@ class Encoder(nn.Module):
 
             assert after_channels % 8 == 0
             # Codebook dimension (1=2, 2=8)
-            embedding_dim = after_channels // 8
+            embedding_dim = 64#after_channels // 8
 
             self.pre_quantize_cond.append(
                 PreQuantizationConditioning(
                     in_channels=after_channels + (embedding_dim if i != n_enc-1 else 0),
                     out_channels=embedding_dim,
+                    has_aux= i != n_enc-1,
                     n_up=n_down_per_enc,
                     resblock=resblock,
                     n_post_upscale_blocks=n_post_upscale_blocks,
