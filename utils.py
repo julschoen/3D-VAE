@@ -226,9 +226,9 @@ class PreQuantizationConditioning(nn.Module):
         super().__init__()
         self.has_aux = has_aux#in_channels - out_channels * 8 != 0
 
-        if False:#self.has_aux:
+        if self.has_aux:
             self.upsample = UpBlock(
-                out_channels * 2 ** n_up,
+                out_channels * 2 ** 0,#n_up,
                 out_channels,
                 n_up=n_up,
                 resblock=resblock,
