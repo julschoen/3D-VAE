@@ -319,12 +319,14 @@ class Encoder(nn.Module):
         # self.parse_input = PreActFixupResBlock(in_channels, base_network_channels, mode='same')
         self.parse_input = nn.Conv3d(in_channels, base_network_channels, kernel_size=1)
 
+        # (1=4, 2=16)
         before_channels = base_network_channels
         self.down, self.pre_quantize, self.pre_quantize_cond, self.quantize = (
             nn.ModuleList() for _ in range(4)
         )
 
         for i in range(n_enc):
+            # 1=16 2=64
             after_channels = before_channels * 2 ** n_down_per_enc
 
             self.down.append(
@@ -337,6 +339,7 @@ class Encoder(nn.Module):
             )
 
             assert after_channels % 8 == 0
+            # Codebook dimension (1=2, 2=8)
             embedding_dim = 64#after_channels // 8
 
             self.pre_quantize_cond.append(
@@ -371,8 +374,9 @@ class Encoder(nn.Module):
         quantizations = []
         for down, pre_quantize, pre_quantize_cond, quantize in reversed(list(zip(downsampled, self.pre_quantize, self.pre_quantize_cond, self.quantize))):
             quantizations.append(quantize(pre_quantize(pre_quantize_cond(down, aux))))
+
             _, aux, *_ = quantizations[-1]
-            print(aux)
+            print(aux.shape)
         
         return reversed(quantizations)
 
