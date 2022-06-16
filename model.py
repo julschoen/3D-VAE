@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 
-from utils import Encoder, Decoder
+from utils import Encoder, Decoder, FixupResBlock
 
 
 class VQVAE(nn.Module):
@@ -72,7 +72,7 @@ class VQVAE(nn.Module):
 
 
         def init_fixupresblock(layer):
-            if isinstance(layer, PreActFixupResBlock):
+            if isinstance(layer, FixupResBlock):
                 layer.initialize_weights(num_layers=self.num_layers)
         self.apply(init_fixupresblock)
 
