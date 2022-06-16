@@ -12,7 +12,7 @@ class VQVAE(nn.Module):
         self.p = params
         self.input_channels = 1
         self.base_network_channels = 4
-        self.n_bottleneck_blocks = 2
+        self.n_bottleneck_blocks = 3
         self.n_blocks_per_bottleneck = 2
         self.n_pre_quantization_blocks = 0
         self.n_post_downscale_blocks = 0
