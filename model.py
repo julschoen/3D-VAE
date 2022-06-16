@@ -1,29 +1,44 @@
 import torch
 from torch import nn
 
-from utils import Encoder, Decoder, PreActFixupResBlock, FixupResBlock
-
-
+from utils import Encoder, Decoder
 
 
 class VQVAE(nn.Module):
     def __init__(self, params):
         super(VQVAE, self).__init__()
         self.p = params
+
+        ## Self-Explanatory
         self.input_channels = 1
+
+        ## Initial CNN Channels but its
+        ## channels * 2**i for i in range n_blocks per bottleneck
         self.base_network_channels = 4
+
+        ## How Many Latent Spaces
         self.n_bottleneck_blocks = 2
+
+        ## How many blocks between each latent space
         self.n_blocks_per_bottleneck = 2
+
+        ## Num blocks after downscale before quantization
         self.n_pre_quantization_blocks = 0
-        self.n_post_downscale_blocks = 0
-        self.n_post_upscale_blocks = 0
-        self.num_embeddings = [self.p.z_size for _ in range(self.n_bottleneck_blocks)]
-        if self.p.res == 0:
-            self.resblock = PreActFixupResBlock
-        else:
-            self.resblock = FixupResBlock
+
+        ## How many blocks before upscale after quantization in Decoder
         self.n_post_quantization_blocks = 0
-        # num_layers is defined as the longest path through the model
+
+        ## How many blocks not downscale in Encoder Block
+        self.n_post_downscale_blocks = 0
+
+        ## How many blocks not upscale in Decoder Block
+        self.n_post_upscale_blocks = 0
+
+        ## This is codebook size referred to as K in Paper
+        self.num_embeddings = [self.p.z_size for _ in range(self.n_bottleneck_blocks)]
+
+        
+        ## Just used for layer weight init (longest path throught net)
         n_down = self.n_bottleneck_blocks * self.n_blocks_per_bottleneck
         self.num_layers = (
             2 # input + output layer
@@ -43,8 +58,7 @@ class VQVAE(nn.Module):
             n_pre_q_blocks=self.n_pre_quantization_blocks,
             n_post_downscale_blocks=self.n_post_downscale_blocks,
             n_post_upscale_blocks=self.n_post_upscale_blocks,
-            num_embeddings=self.num_embeddings,
-            resblock=self.resblock,
+            num_embeddings=self.num_embeddings
 
         )
         self.decoder = Decoder(
@@ -53,13 +67,12 @@ class VQVAE(nn.Module):
             n_enc=self.n_bottleneck_blocks,
             n_up_per_enc=self.n_blocks_per_bottleneck,
             n_post_q_blocks=self.n_post_quantization_blocks,
-            n_post_upscale_blocks=self.n_post_upscale_blocks,
-            resblock=self.resblock,
+            n_post_upscale_blocks=self.n_post_upscale_blocks
         )
 
 
         def init_fixupresblock(layer):
-            if isinstance(layer, PreActFixupResBlock): #isinstance(layer, FixupResBlock) or 
+            if isinstance(layer, PreActFixupResBlock):
                 layer.initialize_weights(num_layers=self.num_layers)
         self.apply(init_fixupresblock)
 
