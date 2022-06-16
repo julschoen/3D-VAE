@@ -55,6 +55,7 @@ class Trainer(object):
         self.generator_train = DataLoader(dataset, batch_size=self.p.batch_size, shuffle=True, num_workers=4, drop_last=True)
         self.val_data = DataLoader(val_data, batch_size=self.p.batch_size, shuffle=True, num_workers=4, drop_last=True)
         self.pre_loss_f = ExtractCenterCylinder()
+        self.loss = nn.MSELoss(reduction='none')
 
         ### Prep Training
         self.losses = []
@@ -160,7 +161,7 @@ class Trainer(object):
             rec = torch.tanh(rec)
         rec_cyl, x_cyl = map(self.pre_loss_f, (rec, x))
 
-        unreduced_rec_loss = F.smooth_l1_loss(rec_cyl, x_cyl, reduction='none')
+        unreduced_rec_loss = self.log(self.loss(rec_cyl, x_cyl))
 
         rec_loss = unreduced_rec_loss.mean()
         commitment_loss = sum(commitment_loss).mean()
