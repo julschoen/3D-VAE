@@ -127,7 +127,7 @@ class Trainer(object):
 
     def log_final(self, step, data, rec):
         self.log_train(step, data, rec)
-        self.log_interpolation(step)
+        self.log_interpolation(step, data, rec)
         self.save_checkpoint(step)
 
     def val_step(self):
