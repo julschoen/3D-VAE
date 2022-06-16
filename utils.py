@@ -369,7 +369,6 @@ class Encoder(nn.Module):
             quantizations.append(quantize(pre_quantize(pre_quantize_cond(down, aux))))
 
             _, aux, *_ = quantizations[-1]
-            print(aux.shape)
         
         return reversed(quantizations)
 
