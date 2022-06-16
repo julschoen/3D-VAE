@@ -347,7 +347,7 @@ class Encoder(nn.Module):
                 PreQuantizationConditioning(
                     in_channels=after_channels + (embedding_dim if i != n_enc-1 else 0),
                     out_channels=embedding_dim,
-                    has_aux= i == n_enc-1
+                    has_aux= i == n_enc-,
                     n_up=n_down_per_enc,
                     resblock=resblock,
                     n_post_upscale_blocks=n_post_upscale_blocks,
