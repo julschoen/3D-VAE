@@ -228,7 +228,7 @@ class PreQuantizationConditioning(nn.Module):
 
         if self.has_aux:
             self.upsample = UpBlock(
-                out_channels * 2 ** 0,#n_up,
+                out_channels,
                 out_channels,
                 n_up=n_up,
                 resblock=resblock,
@@ -257,6 +257,7 @@ class Decoder(nn.Module):
         n_post_q_blocks=0,
         n_post_upscale_blocks=0,
         resblock=FixupResBlock,
+        embedding_dim=64
     ):
         super().__init__()
 
@@ -266,9 +267,6 @@ class Decoder(nn.Module):
 
         for i in range(n_enc):
             before_channels = after_channels * 2 ** n_up_per_enc
-
-            assert before_channels % 8 == 0
-            embedding_dim = before_channels // 8
 
             in_channels = embedding_dim + (before_channels if i != n_enc-1 else 0)
 
@@ -290,7 +288,6 @@ class Decoder(nn.Module):
 
             after_channels = before_channels
 
-        # self.out = PreActFixupResBlock(base_network_channels, out_channels, mode='out')
         self.out = nn.Conv3d(base_network_channels, out_channels, kernel_size=1)
 
     def forward(self, quantizations):
@@ -313,21 +310,19 @@ class Encoder(nn.Module):
         n_pre_q_blocks=0,
         n_post_upscale_blocks=0,
         n_post_downscale_blocks=0,
-        resblock=FixupResBlock
+        resblock=FixupResBlock,
+        embedding_dim=64
     ):
         super().__init__()
 
-        # self.parse_input = PreActFixupResBlock(in_channels, base_network_channels, mode='same')
         self.parse_input = nn.Conv3d(in_channels, base_network_channels, kernel_size=1)
 
-        # (1=4, 2=16)
         before_channels = base_network_channels
         self.down, self.pre_quantize, self.pre_quantize_cond, self.quantize = (
             nn.ModuleList() for _ in range(4)
         )
 
         for i in range(n_enc):
-            # 1=16 2=64
             after_channels = before_channels * 2 ** n_down_per_enc
 
             self.down.append(
@@ -338,10 +333,6 @@ class Encoder(nn.Module):
                     n_post_downscale_blocks=n_post_downscale_blocks
                 ),
             )
-
-            assert after_channels % 8 == 0
-            # Codebook dimension (1=2, 2=8)
-            embedding_dim = 64#after_channels // 8
 
             self.pre_quantize_cond.append(
                 PreQuantizationConditioning(

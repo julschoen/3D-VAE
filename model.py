@@ -35,7 +35,10 @@ class VQVAE(nn.Module):
         self.n_post_upscale_blocks = 0
 
         ## This is codebook size referred to as K in Paper
-        self.num_embeddings = [self.p.z_size for _ in range(self.n_bottleneck_blocks)]
+        self.num_embeddings = [self.p.z_size for i in range(self.n_bottleneck_blocks)]
+
+        ## How large are words in codebook
+        self.code_dim=64
 
         
         ## Just used for layer weight init (longest path throught net)
@@ -58,7 +61,8 @@ class VQVAE(nn.Module):
             n_pre_q_blocks=self.n_pre_quantization_blocks,
             n_post_downscale_blocks=self.n_post_downscale_blocks,
             n_post_upscale_blocks=self.n_post_upscale_blocks,
-            num_embeddings=self.num_embeddings
+            num_embeddings=self.num_embeddings,
+            embedding_dim=self.code_dim
 
         )
         self.decoder = Decoder(
@@ -67,7 +71,8 @@ class VQVAE(nn.Module):
             n_enc=self.n_bottleneck_blocks,
             n_up_per_enc=self.n_blocks_per_bottleneck,
             n_post_q_blocks=self.n_post_quantization_blocks,
-            n_post_upscale_blocks=self.n_post_upscale_blocks
+            n_post_upscale_blocks=self.n_post_upscale_blocks,
+            embedding_dim=self.code_dim
         )
 
 
