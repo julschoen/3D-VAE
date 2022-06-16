@@ -140,7 +140,7 @@ class Trainer(object):
                     rec = torch.tanh(rec)
                     rec_cyl, x_cyl = map(self.pre_loss_f, (rec, x))
 
-                    unreduced_rec_loss = torch.log(self.loss(rec_cyl, x_cyl))
+                    unreduced_rec_loss = self.loss(rec_cyl, x_cyl)
 
                     rec_loss = unreduced_rec_loss.mean()
                     commitment_loss = sum(commitment_loss).mean()
@@ -161,7 +161,7 @@ class Trainer(object):
             rec = torch.tanh(rec)
             rec_cyl, x_cyl = map(self.pre_loss_f, (rec, x))
 
-            unreduced_rec_loss = torch.log(self.loss(rec_cyl, x_cyl))
+            unreduced_rec_loss = self.loss(rec_cyl, x_cyl)
 
             rec_loss = unreduced_rec_loss.mean()
             commitment_loss = sum(commitment_loss).mean()
