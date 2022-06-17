@@ -159,7 +159,7 @@ class Trainer(object):
         rec = torch.tanh(rec)
         #rec_cyl, x_cyl = map(self.pre_loss_f, (rec, x))
 
-        rec_loss = self.loss(cyl, x)
+        rec_loss = self.loss(rec, x)
         commitment_loss = sum(commitment_loss).mean()
 
         loss = rec_loss + commitment_loss
