@@ -139,7 +139,7 @@ class MyVQVAE(nn.Module):
     def encode(self, input):
         enc_b = self.enc_b(input)
         enc_t = self.enc_t(enc_b)
-
+        print(enc_b.shape, enc_t.shape)
         quant_t = self.quantize_conv_t(enc_t).permute(0, 2, 3, 4, 1)
         quant_t, diff_t, id_t = self.quantize_t(quant_t)
         quant_t = quant_t.permute(0, 4, 1, 2, 3)
@@ -152,6 +152,8 @@ class MyVQVAE(nn.Module):
         quant_b, diff_b, id_b = self.quantize_b(quant_b)
         quant_b = quant_b.permute(0, 4, 1, 2, 3)
         diff_b = diff_b.unsqueeze(0)
+
+        print(quant_b.shape, quant_t.shape)
 
         return quant_t, quant_b, diff_t + diff_b, id_t, id_b
 
