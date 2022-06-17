@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 
-from utils import Encoder, Decoder, FixupResBlock
+from utils import Encoder, Decoder, FixupResBlock, Quantizer
 from utils import MyEncoder, MyDecoder, MyQuantize
 
 
@@ -112,12 +112,12 @@ class MyVQVAE(nn.Module):
         self.enc_b = MyEncoder(in_channel, channel, n_res_block, n_res_channel, stride=4)
         self.enc_t = MyEncoder(channel, channel, n_res_block, n_res_channel, stride=2)
         self.quantize_conv_t = nn.Conv3d(channel, embed_dim, 1)
-        self.quantize_t = MyQuantize(embed_dim, n_embed)
+        self.quantize_t = Quantizer(embed_dim, n_embed)
         self.dec_t = MyDecoder(
             embed_dim, embed_dim, channel, n_res_block, n_res_channel, stride=2
         )
         self.quantize_conv_b = nn.Conv3d(embed_dim + channel, embed_dim, 1)
-        self.quantize_b = MyQuantize(embed_dim, n_embed)
+        self.quantize_b = Quantizer(embed_dim, n_embed)
         self.upsample_t = nn.ConvTranspose3d(
             embed_dim, embed_dim, 4, stride=2, padding=1
         )
@@ -140,19 +140,15 @@ class MyVQVAE(nn.Module):
         enc_b = self.enc_b(input)
         enc_t = self.enc_t(enc_b)
 
-        quant_t = self.quantize_conv_t(enc_t).permute(0, 2, 3, 4, 1)
-        quant_t, diff_t, id_t = self.quantize_t(quant_t)
-        quant_t = quant_t.permute(0, 4, 1, 2, 3)
-        diff_t = diff_t.unsqueeze(0)
+        quant_t = self.quantize_conv_t(enc_t)
+        diff_t, quant_t, id_t = self.quantize_t(quant_t)
 
         dec_t = self.dec_t(quant_t)
         enc_b = torch.cat([dec_t, enc_b], 1)
 
-        quant_b = self.quantize_conv_b(enc_b).permute(0, 2, 3, 4, 1)
-        quant_b, diff_b, id_b = self.quantize_b(quant_b)
-        quant_b = quant_b.permute(0, 4, 1, 2, 3)
-        diff_b = diff_b.unsqueeze(0)
-
+        quant_b = self.quantize_conv_b(enc_b)
+        diff_b, quant_b, id_b = self.quantize_b(quant_b)
+        
         return quant_t, quant_b, diff_t + diff_b, id_t, id_b
 
     def decode(self, quant_t, quant_b):
