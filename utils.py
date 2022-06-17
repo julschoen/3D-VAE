@@ -468,17 +468,17 @@ class Quantizer(nn.Module):
 class MyEncoder(nn.Module):
     def __init__(
         self,
-        in_channels,
+        in_channel,
         channel,
-        n_res_blocks,
-        res_channels,
+        n_res_block,
+        res_channel,
         stride=2
     ):
         super().__init__()
 
         if stride == 4:
             blocks = [
-                nn.Conv3d(in_channels, channel // 2, 4, stride=2, padding=1),
+                nn.Conv3d(in_channel, channel // 2, 4, stride=2, padding=1),
                 nn.ReLU(inplace=True),
                 nn.Conv3d(channel // 2, channel, 4, stride=2, padding=1),
                 nn.ReLU(inplace=True),
@@ -487,7 +487,7 @@ class MyEncoder(nn.Module):
 
         elif stride == 2:
             blocks = [
-                nn.Conv3d(in_channels, channel // 2, 4, stride=2, padding=1),
+                nn.Conv3d(in_channel, channel // 2, 4, stride=2, padding=1),
                 nn.ReLU(inplace=True),
                 nn.Conv3d(channel // 2, channel, 3, padding=1),
             ]
@@ -505,10 +505,10 @@ class MyEncoder(nn.Module):
 class MyDecoder(nn.Module):
     def __init__(
         self,
-        in_channels,
+        in_channel,
         channel,
-        n_res_blocks,
-        res_channels,
+        n_res_block,
+        res_channel,
         stride=2
     ):
         super().__init__()
@@ -526,14 +526,14 @@ class MyDecoder(nn.Module):
                     nn.ConvTranspose3d(channel, channel // 2, 4, stride=2, padding=1),
                     nn.ReLU(inplace=True),
                     nn.ConvTranspose3d(
-                        channel // 2, out_channel, 4, stride=2, padding=1
+                        channel // 2, 1, 4, stride=2, padding=1
                     ),
                 ]
             )
 
         elif stride == 2:
             blocks.append(
-                nn.ConvTranspose3d(channel, out_channel, 4, stride=2, padding=1)
+                nn.ConvTranspose3d(channel, 1, 4, stride=2, padding=1)
             )
 
         self.blocks = nn.Sequential(*blocks)
