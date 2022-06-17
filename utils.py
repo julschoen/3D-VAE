@@ -590,3 +590,6 @@ class MyQuantize(nn.Module):
         quantize = input + (quantize - input).detach()
 
         return quantize, diff, embed_ind
+
+    def embed_code(self, embed_id):
+        return F.embedding(embed_id, self.embed.transpose(0, 1))
