@@ -4,6 +4,7 @@ import numpy as np
 import torch
 from torch import nn
 import torch.nn.functional as F
+from torch import distributed as dist
 
 class ResBlock(nn.Module):
     def __init__(self, in_channel, channel):
@@ -556,6 +557,24 @@ class MyQuantize(nn.Module):
         self.register_buffer("cluster_size", torch.zeros(n_embed))
         self.register_buffer("embed_avg", embed.clone())
 
+    def get_world_size(self):
+        if not dist.is_available():
+            return 1
+
+        if not dist.is_initialized():
+            return 1
+
+        return dist.get_world_size()
+
+    def all_reduce(self, tensor, op=dist.ReduceOp.SUM):
+        world_size = self.get_world_size()
+
+        if world_size == 1:
+            return tensor
+
+        dist.all_reduce(tensor, op=op)
+        return tensor
+
     def forward(self, input):
         flatten = input.reshape(-1, self.dim)
         dist = (
@@ -572,8 +591,8 @@ class MyQuantize(nn.Module):
             embed_onehot_sum = embed_onehot.sum(0)
             embed_sum = flatten.transpose(0, 1) @ embed_onehot
 
-            dist_fn.all_reduce(embed_onehot_sum)
-            dist_fn.all_reduce(embed_sum)
+            self.all_reduce(embed_onehot_sum)
+            self.all_reduce(embed_sum)
 
             self.cluster_size.data.mul_(self.decay).add_(
                 embed_onehot_sum, alpha=1 - self.decay
