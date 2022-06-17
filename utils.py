@@ -434,10 +434,8 @@ class Quantizer(nn.Module):
     @torch.cuda.amp.autocast(enabled=False)
     def forward(self, inputs):
         inputs = inputs.float()
-        print(inputs.shape)
-
         with torch.no_grad():
-            channel_last = inputs.permute(0, 2, 3, 4, 1)
+            channel_last = inputs.permute(0, 2, 3, 4, 1) # XXX: might not actually be necessary
             input_shape = channel_last.shape
 
             flat_input = channel_last.reshape(-1, self.embedding_dim)
@@ -455,7 +453,6 @@ class Quantizer(nn.Module):
 
             # Cast everything back to the same order and dimensions of the input
             quantized = quantized.permute(0, 4, 1, 2, 3)
-            print(encoding_indices.shape, input_shape[:-1])
             encoding_indices = encoding_indices.reshape(input_shape[:-1])
 
         # Don't need to detach quantized; doesn't require grad

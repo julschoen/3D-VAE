@@ -133,7 +133,7 @@ class MyVQVAE(nn.Module):
     def forward(self, input):
         quant_t, quant_b, diff, _, _ = self.encode(input)
         dec = self.decode(quant_t, quant_b)
-        diff = diff*0.25
+        #diff = diff*0.25
         return dec, (diff, quant_t, quant_b)
 
     def encode(self, input):
@@ -160,10 +160,9 @@ class MyVQVAE(nn.Module):
 
     def decode_code(self, code_t, code_b):
         quant_t = self.quantize_t.embed_code(code_t)
-        quant_t = quant_t.permute(0, 4, 1, 2, 3)
+        #quant_t = quant_t.permute(0, 4, 1, 2, 3)
         quant_b = self.quantize_b.embed_code(code_b)
-        quant_b = quant_b.permute(0, 4, 1, 2, 3)
-
+        #quant_b = quant_b.permute(0, 4, 1, 2, 3)
         dec = self.decode(quant_t, quant_b)
 
         return dec
