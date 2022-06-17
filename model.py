@@ -4,11 +4,7 @@ from torch import nn
 from utils import Encoder, Decoder, Quantizer, MyQuantize
 
 class VQVAE(nn.Module):
-    def __init__(
-        self,
-        params,
-        decay=0.99,
-    ):
+    def __init__(self, params, decay=0.99,):
         super().__init__()
 
         in_channel = 1
@@ -19,11 +15,11 @@ class VQVAE(nn.Module):
         n_embed = params.K
 
 
-        self.enc_b = MyEncoder(in_channel, channel, n_res_block, n_res_channel, stride=4)
-        self.enc_t = MyEncoder(channel, channel, n_res_block, n_res_channel, stride=2)
+        self.enc_b = Encoder(in_channel, channel, n_res_block, n_res_channel, stride=4)
+        self.enc_t = Encoder(channel, channel, n_res_block, n_res_channel, stride=2)
         self.quantize_conv_t = nn.Conv3d(channel, embed_dim, 1)
         self.quantize_t = Quantizer(n_embed, embed_dim)
-        self.dec_t = MyDecoder(
+        self.dec_t = Decoder(
             embed_dim, embed_dim, channel, n_res_block, n_res_channel, stride=2
         )
         self.quantize_conv_b = nn.Conv3d(embed_dim + channel, embed_dim, 1)
@@ -31,7 +27,7 @@ class VQVAE(nn.Module):
         self.upsample_t = nn.ConvTranspose3d(
             embed_dim, embed_dim, 4, stride=2, padding=1
         )
-        self.dec = MyDecoder(
+        self.dec = Decoder(
             embed_dim + embed_dim,
             in_channel,
             channel,
