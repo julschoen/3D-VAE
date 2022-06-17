@@ -368,11 +368,6 @@ class Quantizer(nn.Module):
         self.register_buffer("embed", embed) # e_i
         self.register_buffer("embed_avg", embed.clone()) # m_i
         self.register_buffer("cluster_size", torch.zeros(num_embeddings)) # N_i
-
-        # TODO: replace with bool, cuda_mul_bool issue fixed in
-        # https://github.com/pytorch/pytorch/pull/48310
-        #
-        # Needs to be a buffer, otherwise doesn't get added to state dict
         self.register_buffer("first_pass", torch.as_tensor(1))
 
         self.commitment_cost = commitment_cost
@@ -477,7 +472,6 @@ class MyEncoder(nn.Module):
         channel,
         n_res_blocks,
         res_channels,
-        num_embeddings,
         stride=2
     ):
         super().__init__()
@@ -515,7 +509,6 @@ class MyDecoder(nn.Module):
         channel,
         n_res_blocks,
         res_channels,
-        num_embeddings,
         stride=2
     ):
         super().__init__()
@@ -547,7 +540,6 @@ class MyDecoder(nn.Module):
 
     def forward(self, input):
         return self.blocks(input)
-
 
 class MyQuantize(nn.Module):
     def __init__(self, dim, n_embed, decay=0.99, eps=1e-5):
