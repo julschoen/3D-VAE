@@ -103,8 +103,8 @@ class MyVQVAE(nn.Module):
         channel=64,
         n_res_block=2,
         n_res_channel=64,
-        embed_dim=32,
-        n_embed=256,
+        embed_dim=256,
+        n_embed=32,
         decay=0.99,
     ):
         super().__init__()
