@@ -68,8 +68,8 @@ class Trainer(object):
         
     def log_train(self, step, data, rec):
         with torch.no_grad():
-            real = torch.nan_to_num(real, nan=0.0, posinf=1, neginf=-1)
-            fake = torch.nan_to_num(fake, nan=0.0, posinf=1, neginf=-1)
+            data = torch.nan_to_num(data, nan=0.0, posinf=1, neginf=-1)
+            rec = torch.nan_to_num(rec, nan=0.0, posinf=1, neginf=-1)
             self.fid.append(
                 FID.fid(
                     torch.reshape(rec.to(torch.float32), (-1,1,128,128)).expand(-1,3,-1,-1), 
