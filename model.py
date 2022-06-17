@@ -2,7 +2,7 @@ import torch
 from torch import nn
 
 from utils import Encoder, Decoder, FixupResBlock, Quantizer
-from utils import MyEncoder, MyDecoder, MyQuantize,
+from utils import MyEncoder, MyDecoder, MyQuantize
 
 
 class VQVAE(nn.Module):
