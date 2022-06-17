@@ -14,7 +14,7 @@ class VQVAE(nn.Module):
 
         ## Initial CNN Channels but its
         ## channels * 2**i for i in range n_blocks per bottleneck
-        self.base_network_channels = 4
+        self.base_network_channels = 32
 
         ## How Many Latent Spaces
         self.n_bottleneck_blocks = 2
