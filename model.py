@@ -127,7 +127,7 @@ class MyVQVAE(nn.Module):
             channel,
             n_res_block,
             n_res_channel,
-            stride=4,
+            stride=4
         )
 
     def forward(self, input):

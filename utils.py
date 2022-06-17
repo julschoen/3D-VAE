@@ -506,6 +506,7 @@ class MyDecoder(nn.Module):
     def __init__(
         self,
         in_channel,
+        out_channel
         channel,
         n_res_block,
         n_res_channel,
@@ -526,14 +527,14 @@ class MyDecoder(nn.Module):
                     nn.ConvTranspose3d(channel, channel // 2, 4, stride=2, padding=1),
                     nn.ReLU(inplace=True),
                     nn.ConvTranspose3d(
-                        channel // 2, 1, 4, stride=2, padding=1
+                        channel // 2, out_channel, 4, stride=2, padding=1
                     ),
                 ]
             )
 
         elif stride == 2:
             blocks.append(
-                nn.ConvTranspose3d(channel, 1, 4, stride=2, padding=1)
+                nn.ConvTranspose3d(channel, out_channel, 4, stride=2, padding=1)
             )
 
         self.blocks = nn.Sequential(*blocks)
