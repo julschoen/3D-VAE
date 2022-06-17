@@ -361,7 +361,7 @@ class Quantizer(nn.Module):
     EMA-updated Vector Quantizer
     """
     def __init__(
-        self, num_embeddings : int, embedding_dim : int, commitment_cost : float, decay=0.99, laplace_alpha=1e-5
+        self, num_embeddings, embedding_dim, commitment_cost=0.25, decay=0.99, laplace_alpha=1e-5
     ):
         super(Quantizer, self).__init__()
 
