@@ -506,7 +506,7 @@ class MyDecoder(nn.Module):
     def __init__(
         self,
         in_channel,
-        out_channel
+        out_channel,
         channel,
         n_res_block,
         n_res_channel,
