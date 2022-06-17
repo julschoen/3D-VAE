@@ -103,8 +103,8 @@ class MyVQVAE(nn.Module):
         channel=64,
         n_res_block=2,
         n_res_channel=64,
-        embed_dim=256,
-        n_embed=32,
+        embed_dim=32,
+        n_embed=256,
         decay=0.99,
     ):
         super().__init__()
@@ -112,12 +112,12 @@ class MyVQVAE(nn.Module):
         self.enc_b = MyEncoder(in_channel, channel, n_res_block, n_res_channel, stride=4)
         self.enc_t = MyEncoder(channel, channel, n_res_block, n_res_channel, stride=2)
         self.quantize_conv_t = nn.Conv3d(channel, embed_dim, 1)
-        self.quantize_t = Quantizer(embed_dim, n_embed)
+        self.quantize_t = Quantizer(n_embed, embed_dim)
         self.dec_t = MyDecoder(
             embed_dim, embed_dim, channel, n_res_block, n_res_channel, stride=2
         )
         self.quantize_conv_b = nn.Conv3d(embed_dim + channel, embed_dim, 1)
-        self.quantize_b = Quantizer(embed_dim, n_embed)
+        self.quantize_b = Quantizer(n_embed, embed_dim)
         self.upsample_t = nn.ConvTranspose3d(
             embed_dim, embed_dim, 4, stride=2, padding=1
         )
