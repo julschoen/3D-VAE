@@ -14,8 +14,7 @@ from torch.cuda.amp import autocast, GradScaler
 import torchvision
 import torchvision.utils as vutils
 
-from model import VQVAE
-from utils import ExtractCenterCylinder
+from model import VQVAE, MyVQVAE
 
 
 
@@ -43,7 +42,7 @@ class Trainer(object):
         self.p = params
 
         ### Make Models ###
-        self.model = VQVAE(self.p).to(self.p.device)
+        self.model = MyVQVAE(self.p).to(self.p.device)
 
         if self.p.ngpu > 1:
             self.model = nn.DataParallel(self.model,device_ids=list(range(self.p.ngpu)))
@@ -54,7 +53,6 @@ class Trainer(object):
         ### Make Data Generator ###
         self.generator_train = DataLoader(dataset, batch_size=self.p.batch_size, shuffle=True, num_workers=4, drop_last=True)
         self.val_data = DataLoader(val_data, batch_size=self.p.batch_size, shuffle=True, num_workers=4, drop_last=True)
-        self.pre_loss_f = ExtractCenterCylinder()
         self.loss = nn.MSELoss()
 
         ### Prep Training
@@ -138,7 +136,6 @@ class Trainer(object):
                     x = x.unsqueeze(1).to(self.p.device)
                     rec, (commitment_loss, _, _) = self.model(x)
                     rec = torch.tanh(rec)
-                    #rec_cyl, x_cyl = map(self.pre_loss_f, (rec, x))
 
                     rec_loss = self.loss(rec, x)
                     commitment_loss = sum(commitment_loss).mean()
@@ -157,7 +154,6 @@ class Trainer(object):
         
         rec, (commitment_loss, q,_) = self.model(x)
         rec = torch.tanh(rec)
-        #rec_cyl, x_cyl = map(self.pre_loss_f, (rec, x))
 
         rec_loss = self.loss(rec, x)
         commitment_loss = sum(commitment_loss).mean()

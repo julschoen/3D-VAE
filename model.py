@@ -2,6 +2,7 @@ import torch
 from torch import nn
 
 from utils import Encoder, Decoder, FixupResBlock
+from utils import MyEncoder, MyDecoder, MyQuantize
 
 
 class VQVAE(nn.Module):
@@ -92,3 +93,81 @@ class VQVAE(nn.Module):
 
     def decode(self, quantizations):
         return self.decoder(quantizations)
+
+
+class MyVQVAE(nn.Module):
+    def __init__(
+        self,
+        params,
+        in_channel=1,
+        channel=128,
+        n_res_block=2,
+        n_res_channel=32,
+        embed_dim=32,
+        n_embed=256,
+        decay=0.99,
+    ):
+        super().__init__()
+
+        self.enc_b = MyEncoder(in_channel, channel, n_res_block, n_res_channel, stride=4)
+        self.enc_t = MyEncoder(channel, channel, n_res_block, n_res_channel, stride=2)
+        self.quantize_conv_t = nn.Conv3d(channel, embed_dim, 1)
+        self.quantize_t = MyQuantize(embed_dim, n_embed)
+        self.dec_t = Decoder(
+            embed_dim, embed_dim, channel, n_res_block, n_res_channel, stride=2
+        )
+        self.quantize_conv_b = nn.Conv3d(embed_dim + channel, embed_dim, 1)
+        self.quantize_b = MyQuantize(embed_dim, n_embed)
+        self.upsample_t = nn.ConvTranspose3d(
+            embed_dim, embed_dim, 4, stride=2, padding=1
+        )
+        self.dec = MyDecoder(
+            embed_dim + embed_dim,
+            in_channel,
+            channel,
+            n_res_block,
+            n_res_channel,
+            stride=4,
+        )
+
+    def forward(self, input):
+        quant_t, quant_b, diff, _, _ = self.encode(input)
+        dec = self.decode(quant_t, quant_b)
+
+        return dec, diff
+
+    def encode(self, input):
+        enc_b = self.enc_b(input)
+        enc_t = self.enc_t(enc_b)
+
+        quant_t = self.quantize_conv_t(enc_t).permute(0, 2, 3, 1)
+        quant_t, diff_t, id_t = self.quantize_t(quant_t)
+        quant_t = quant_t.permute(0, 3, 1, 2)
+        diff_t = diff_t.unsqueeze(0)
+
+        dec_t = self.dec_t(quant_t)
+        enc_b = torch.cat([dec_t, enc_b], 1)
+
+        quant_b = self.quantize_conv_b(enc_b).permute(0, 2, 3, 1)
+        quant_b, diff_b, id_b = self.quantize_b(quant_b)
+        quant_b = quant_b.permute(0, 3, 1, 2)
+        diff_b = diff_b.unsqueeze(0)
+
+        return quant_t, quant_b, diff_t + diff_b, id_t, id_b
+
+    def decode(self, quant_t, quant_b):
+        upsample_t = self.upsample_t(quant_t)
+        quant = torch.cat([upsample_t, quant_b], 1)
+        dec = self.dec(quant)
+
+        return dec
+
+    def decode_code(self, code_t, code_b):
+        quant_t = self.quantize_t.embed_code(code_t)
+        quant_t = quant_t.permute(0, 3, 1, 2)
+        quant_b = self.quantize_b.embed_code(code_b)
+        quant_b = quant_b.permute(0, 3, 1, 2)
+
+        dec = self.decode(quant_t, quant_b)
+
+        return dec
