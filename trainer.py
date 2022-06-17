@@ -140,7 +140,7 @@ class Trainer(object):
                     rec = torch.tanh(rec)
 
                     rec_loss = self.loss(rec, x)
-                    commitment_loss = sum(commitment_loss).mean()
+                    commitment_loss = commitment_loss.mean()
 
                     l[0].append(rec_loss.item())
                     l[1].append(commitment_loss.item())
@@ -158,7 +158,7 @@ class Trainer(object):
         rec = torch.tanh(rec)
 
         rec_loss = self.loss(rec, x)
-        commitment_loss = sum(commitment_loss).mean()
+        commitment_loss = commitment_loss.mean()
 
         loss = rec_loss + commitment_loss
 
