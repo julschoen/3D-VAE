@@ -143,7 +143,7 @@ class Trainer(object):
                     commitment_loss = 0# sum(commitment_loss).mean()
 
                     l[0].append(rec_loss.item())
-                    l[1].append(commitment_loss.item())
+                    l[1].append(commitment_loss)#.item())
 
 
         self.val_losses.append(tuple(np.mean(l, axis=1)))
