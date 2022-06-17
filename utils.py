@@ -471,7 +471,7 @@ class MyEncoder(nn.Module):
         in_channel,
         channel,
         n_res_block,
-        res_channel,
+        n_res_channel,
         stride=2
     ):
         super().__init__()
@@ -508,7 +508,7 @@ class MyDecoder(nn.Module):
         in_channel,
         channel,
         n_res_block,
-        res_channel,
+        n_res_channel,
         stride=2
     ):
         super().__init__()
