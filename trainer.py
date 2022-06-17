@@ -42,7 +42,7 @@ class Trainer(object):
         self.p = params
 
         ### Make Models ###
-        self.model = MyVQVAE(self.p).to(self.p.device)
+        self.model = VQVAE(self.p).to(self.p.device)
 
         if self.p.ngpu > 1:
             self.model = nn.DataParallel(self.model,device_ids=list(range(self.p.ngpu)))
