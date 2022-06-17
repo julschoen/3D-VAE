@@ -14,7 +14,7 @@ from torch.cuda.amp import autocast, GradScaler
 import torchvision
 import torchvision.utils as vutils
 
-from model import VQVAE, MyVQVAE
+from model import VQVAE
 
 
 
@@ -42,7 +42,7 @@ class Trainer(object):
         self.p = params
 
         ### Make Models ###
-        self.model = MyVQVAE(self.p).to(self.p.device)
+        self.model = VQVAE(self.p).to(self.p.device)
 
         if self.p.ngpu > 1:
             self.model = nn.DataParallel(self.model,device_ids=list(range(self.p.ngpu)))
