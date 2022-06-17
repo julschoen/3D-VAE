@@ -113,7 +113,7 @@ class MyVQVAE(nn.Module):
         self.enc_t = MyEncoder(channel, channel, n_res_block, n_res_channel, stride=2)
         self.quantize_conv_t = nn.Conv3d(channel, embed_dim, 1)
         self.quantize_t = MyQuantize(embed_dim, n_embed)
-        self.dec_t = Decoder(
+        self.dec_t = MyDecoder(
             embed_dim, embed_dim, channel, n_res_block, n_res_channel, stride=2
         )
         self.quantize_conv_b = nn.Conv3d(embed_dim + channel, embed_dim, 1)
