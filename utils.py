@@ -6,88 +6,143 @@ from torch import nn
 import torch.nn.functional as F
 from torch import distributed as dist
 
-class FixupBlock(torch.nn.Module):
-    # Adapted from:
-    # https://github.com/hongyi-zhang/Fixup/blob/master/imagenet/models/fixup_resnet_imagenet.py#L20
+class SamePadConv3d(nn.Module):
+    def __init__(self, in_channels, out_channels, kernel_size, stride=1, bias=True):
+        super().__init__()
+        if isinstance(kernel_size, int):
+            kernel_size = (kernel_size,) * 3
+        if isinstance(stride, int):
+            stride = (stride,) * 3
 
-    def __init__(self, in_channels, out_channels):
-        super(FixupBlock, self).__init__()
+        # assumes that the input shape is divisible by stride
+        total_pad = tuple([k - s for k, s in zip(kernel_size, stride)])
+        pad_input = []
+        for p in total_pad[::-1]: # reverse since F.pad starts from last dim
+            pad_input.append((p // 2 + p % 2, p // 2))
+        pad_input = sum(pad_input, tuple())
+        self.pad_input = pad_input
 
-        self.bias1a = torch.nn.Parameter(data=torch.zeros(1), requires_grad=True)
-        self.bias1b = torch.nn.Parameter(data=torch.zeros(1), requires_grad=True)
-        self.bias2a = torch.nn.Parameter(data=torch.zeros(1), requires_grad=True)
-        self.bias2b = torch.nn.Parameter(data=torch.zeros(1), requires_grad=True)
+        self.conv = nn.Conv3d(in_channels, out_channels, kernel_size,
+                              stride=stride, padding=0, bias=bias)
 
-        self.scale = torch.nn.Parameter(data=torch.ones(1), requires_grad=True)
+    def forward(self, x):
+        return self.conv(F.pad(x, self.pad_input))
 
-        self.activation = torch.nn.LeakyReLU(inplace=False)
+class MultiHeadAttention(nn.Module):
+    def __init__(self, shape, dim_q, dim_kv, n_head, n_layer,
+                 causal, attn_type, attn_kwargs):
+        super().__init__()
+        self.causal = causal
+        self.shape = shape
 
-        
-        self.skip_conv = torch.nn.Conv3d(
-            in_channels=in_channels,
-            out_channels=out_channels,
-            kernel_size=3,
-            stride=1,
-            padding=1,
-            bias=False,
+        self.d_k = dim_q // n_head
+        self.d_v = dim_kv // n_head
+        self.n_head = n_head
+
+        self.w_qs = nn.Linear(dim_q, n_head * self.d_k, bias=False) # q
+        self.w_qs.weight.data.normal_(std=1.0 / np.sqrt(dim_q))
+
+        self.w_ks = nn.Linear(dim_kv, n_head * self.d_k, bias=False) # k
+        self.w_ks.weight.data.normal_(std=1.0 / np.sqrt(dim_kv))
+
+        self.w_vs = nn.Linear(dim_kv, n_head * self.d_v, bias=False) # v
+        self.w_vs.weight.data.normal_(std=1.0 / np.sqrt(dim_kv))
+
+        self.fc = nn.Linear(n_head * self.d_v, dim_q, bias=True) # c
+        self.fc.weight.data.normal_(std=1.0 / np.sqrt(dim_q * n_layer))
+
+        if attn_type == 'full':
+            self.attn = FullAttention(shape, causal, **attn_kwargs)
+        elif attn_type == 'axial':
+            assert not causal, 'causal axial attention is not supported'
+            self.attn = AxialAttention(len(shape), **attn_kwargs)
+        elif attn_type == 'sparse':
+            self.attn = SparseAttention(shape, n_head, causal, **attn_kwargs)
+
+        self.cache = None
+
+    def forward(self, q, k, v, decode_step=None, decode_idx=None):
+        """ Compute multi-head attention
+        Args
+            q, k, v: a [b, d1, ..., dn, c] tensor or
+                     a [b, 1, ..., 1, c] tensor if decode_step is not None
+        Returns
+            The output after performing attention
+        """
+
+        # compute k, q, v
+        d_k, d_v, n_head = self.d_k, self.d_v, self.n_head
+        q = view_range(self.w_qs(q), -1, None, (n_head, d_k))
+        k = view_range(self.w_ks(k), -1, None, (n_head, d_k))
+        v = view_range(self.w_vs(v), -1, None, (n_head, d_v))
+
+        # b x n_head x seq_len x d
+        # (b, *d_shape, n_head, d) -> (b, n_head, *d_shape, d)
+        q = shift_dim(q, -2, 1)
+        k = shift_dim(k, -2, 1)
+        v = shift_dim(v, -2, 1)
+
+        # fast decoding
+        if decode_step is not None:
+            if decode_step == 0:
+                if self.causal:
+                    k_shape = (q.shape[0], n_head, *self.shape, self.d_k)
+                    v_shape = (q.shape[0], n_head, *self.shape, self.d_v)
+                    self.cache = dict(k=torch.zeros(k_shape, dtype=k.dtype, device=q.device),
+                                    v=torch.zeros(v_shape, dtype=v.dtype, device=q.device))
+                else:
+                    # cache only once in the non-causal case
+                    self.cache = dict(k=k.clone(), v=v.clone())
+            if self.causal:
+                idx = (slice(None, None), slice(None, None), *[slice(i, i+ 1) for i in decode_idx])
+                self.cache['k'][idx] = k
+                self.cache['v'][idx] = v
+            k, v = self.cache['k'], self.cache['v']
+
+        a = self.attn(q, k, v, decode_step, decode_idx)
+
+        # (b, *d_shape, n_head, d) -> (b, *d_shape, n_head * d)
+        a = shift_dim(a, 1, -2).flatten(start_dim=-2)
+        a = self.fc(a) # (b x seq_len x embd_dim)
+
+        return a
+
+class AxialBlock(nn.Module):
+    def __init__(self, n_hiddens, n_head):
+        super().__init__()
+        kwargs = dict(shape=(0,) * 3, dim_q=n_hiddens,
+                      dim_kv=n_hiddens, n_head=n_head,
+                      n_layer=1, causal=False, attn_type='axial')
+        self.attn_w = MultiHeadAttention(attn_kwargs=dict(axial_dim=-2),
+                                         **kwargs)
+        self.attn_h = MultiHeadAttention(attn_kwargs=dict(axial_dim=-3),
+                                         **kwargs)
+        self.attn_t = MultiHeadAttention(attn_kwargs=dict(axial_dim=-4),
+                                         **kwargs)
+
+    def forward(self, x):
+        x = shift_dim(x, 1, -1)
+        x = self.attn_w(x, x, x) + self.attn_h(x, x, x) + self.attn_t(x, x, x)
+        x = shift_dim(x, -1, 1)
+        return x
+
+class AttentionResidualBlock(nn.Module):
+    def __init__(self, in_chhannel, n_hiddens):
+        super().__init__()
+        self.block = nn.Sequential(
+            nn.BatchNorm3d(in_channel),
+            nn.ReLU(),
+            SamePadConv3d(in_channel, n_hiddens, 3, bias=False),
+            nn.BatchNorm3d(n_hiddens),
+            nn.ReLU(),
+            SamePadConv3d(n_hiddens, in_channel, 1, bias=False),
+            nn.BatchNorm3d(in_channel),
+            nn.ReLU(),
+            AxialBlock(in_channel, 2)
         )
 
-        self.conv1 = torch.nn.Conv3d(
-            in_channels=in_channels,
-            out_channels=out_channels,
-            kernel_size=3,
-            stride=1,
-            padding=1,
-            bias=False,
-        )
-
-        self.conv2 = torch.nn.Conv3d(
-            in_channels=out_channels,
-            out_channels=out_channels,
-            kernel_size=3,
-            stride=1,
-            padding=1,
-            bias=False,
-        )
-
-        self.nca = torch.nn.Sequential(
-            torch.nn.ConstantPad3d(padding=(1, 0, 1, 0, 1, 0), value=0),
-            torch.nn.AvgPool3d(kernel_size=2, stride=1),
-        )
-
-    def initialize_weights(self, num_layers):
-        torch.nn.init.normal_(
-            tensor=self.conv1.weight,
-            mean=0,
-            std=np.sqrt(
-                2 / (self.conv1.weight.shape[0] * np.prod(self.conv1.weight.shape[2:]))
-            )
-            * num_layers ** (-0.5),
-        )
-        torch.nn.init.constant_(tensor=self.conv2.weight, val=0)
-        torch.nn.init.normal_(
-            tensor=self.skip_conv.weight,
-            mean=0,
-            std=np.sqrt(
-                2
-                / (
-                    self.skip_conv.weight.shape[0]
-                    * np.prod(self.skip_conv.weight.shape[2:])
-                )
-            ),
-        )
-
-    def forward(self, input):
-        out = self.conv1(input + self.bias1a)
-        out = self.nca(self.activation(out + self.bias1b))
-
-        out = self.conv2(out + self.bias2a)
-        out = out * self.scale + self.bias2b
-
-        out += self.nca(self.skip_conv(input + self.bias1a))
-        out = self.activation(out)
-
-        return out
+    def forward(self, x):
+        return x + self.block(x)
 
 class ResBlock(nn.Module):
     def __init__(self, in_channel, channel):
@@ -226,10 +281,9 @@ class Encoder(nn.Module):
         n_res_block,
         n_res_channel,
         stride=2,
-        res=ResBlock
+        res=AttentionResidualBlock
     ):
         super().__init__()
-        num_layers = 10
         if stride == 4:
             blocks = [
                 nn.Conv3d(in_channel, channel // 2, 4, stride=2, padding=1),
@@ -253,10 +307,6 @@ class Encoder(nn.Module):
 
         self.blocks = nn.Sequential(*blocks)
 
-        for m in self.blocks:
-            if isinstance(m, FixupBlock):
-                m.initialize_weights(num_layers=num_layers)
-
     def forward(self, data):
         return self.blocks(data)
 
@@ -269,10 +319,9 @@ class Decoder(nn.Module):
         n_res_block,
         n_res_channel,
         stride=2,
-        res=ResBlock
+        res=AttentionResidualBlock
     ):
         super().__init__()
-        num_layers = 10
         blocks = [nn.Conv3d(in_channel, channel, 3, padding=1)]
 
         for i in range(n_res_block):
@@ -297,10 +346,6 @@ class Decoder(nn.Module):
             )
 
         self.blocks = nn.Sequential(*blocks)
-
-        for m in self.blocks:
-            if isinstance(m, FixupBlock):
-                m.initialize_weights(num_layers=num_layers)
 
     def forward(self, input):
         return self.blocks(input)
