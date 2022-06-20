@@ -253,7 +253,7 @@ class Encoder(nn.Module):
 
         self.blocks = nn.Sequential(*blocks)
 
-        for m in self.blocks():
+        for m in self.blocks:
             if isinstance(m, FixupBlock):
                 m.initialize_weights(num_layers=num_layers)
 
@@ -298,7 +298,7 @@ class Decoder(nn.Module):
 
         self.blocks = nn.Sequential(*blocks)
 
-        for m in self.blocks():
+        for m in self.blocks:
             if isinstance(m, FixupBlock):
                 m.initialize_weights(num_layers=num_layers)
 
