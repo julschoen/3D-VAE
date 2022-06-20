@@ -226,7 +226,7 @@ class Encoder(nn.Module):
         n_res_block,
         n_res_channel,
         stride=2,
-        res=FixupBlock
+        res=ResBlock
     ):
         super().__init__()
         num_layers = 10
@@ -269,7 +269,7 @@ class Decoder(nn.Module):
         n_res_block,
         n_res_channel,
         stride=2,
-        res=FixupBlock
+        res=ResBlock
     ):
         super().__init__()
         num_layers = 10
