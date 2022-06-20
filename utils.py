@@ -425,7 +425,7 @@ class Decoder(nn.Module):
         return self.blocks(input)
 
 class MyQuantize(nn.Module):
-    def __init__(self, dim, n_embed, decay=0.99, eps=1e-5):
+    def __init__(self, n_embed, dim, decay=0.99, eps=1e-5):
         super().__init__()
 
         self.dim = dim
