@@ -355,7 +355,7 @@ class Encoder(nn.Module):
         n_res_block,
         n_res_channel,
         stride=2,
-        res=AttentionResidualBlock
+        res=ResBlock
     ):
         super().__init__()
         if stride == 4:
@@ -393,7 +393,7 @@ class Decoder(nn.Module):
         n_res_block,
         n_res_channel,
         stride=2,
-        res=AttentionResidualBlock
+        res=ResBlock
     ):
         super().__init__()
         blocks = [nn.Conv3d(in_channel, channel, 3, padding=1)]
