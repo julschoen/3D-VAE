@@ -28,6 +28,27 @@ class SamePadConv3d(nn.Module):
     def forward(self, x):
         return self.conv(F.pad(x, self.pad_input))
 
+class AxialAttention(nn.Module):
+    def __init__(self, n_dim, axial_dim):
+        super().__init__()
+        if axial_dim < 0:
+            axial_dim = 2 + n_dim + 1 + axial_dim
+        else:
+            axial_dim += 2 # account for batch, head, dim
+        self.axial_dim = axial_dim
+
+    def forward(self, q, k, v, decode_step, decode_idx):
+        q = shift_dim(q, self.axial_dim, -2).flatten(end_dim=-3)
+        k = shift_dim(k, self.axial_dim, -2).flatten(end_dim=-3)
+        v = shift_dim(v, self.axial_dim, -2)
+        old_shape = list(v.shape)
+        v = v.flatten(end_dim=-3)
+
+        out = scaled_dot_product_attention(q, k, v, training=self.training)
+        out = out.view(*old_shape)
+        out = shift_dim(out, -2, self.axial_dim)
+        return out
+
 class MultiHeadAttention(nn.Module):
     def __init__(self, shape, dim_q, dim_kv, n_head, n_layer,
                  causal, attn_type, attn_kwargs):
@@ -50,14 +71,8 @@ class MultiHeadAttention(nn.Module):
 
         self.fc = nn.Linear(n_head * self.d_v, dim_q, bias=True) # c
         self.fc.weight.data.normal_(std=1.0 / np.sqrt(dim_q * n_layer))
-
-        if attn_type == 'full':
-            self.attn = FullAttention(shape, causal, **attn_kwargs)
-        elif attn_type == 'axial':
-            assert not causal, 'causal axial attention is not supported'
-            self.attn = AxialAttention(len(shape), **attn_kwargs)
-        elif attn_type == 'sparse':
-            self.attn = SparseAttention(shape, n_head, causal, **attn_kwargs)
+        
+        self.attn = AxialAttention(len(shape), **attn_kwargs)
 
         self.cache = None
 
