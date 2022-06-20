@@ -6,6 +6,91 @@ from torch import nn
 import torch.nn.functional as F
 from torch import distributed as dist
 
+class FixupBlock(torch.nn.Module):
+    # Adapted from:
+    # https://github.com/hongyi-zhang/Fixup/blob/master/imagenet/models/fixup_resnet_imagenet.py#L20
+
+    def __init__(self, in_channels, out_channels):
+        super(FixupBlock, self).__init__()
+
+        self.bias1a = torch.nn.Parameter(data=torch.zeros(1), requires_grad=True)
+        self.bias1b = torch.nn.Parameter(data=torch.zeros(1), requires_grad=True)
+        self.bias2a = torch.nn.Parameter(data=torch.zeros(1), requires_grad=True)
+        self.bias2b = torch.nn.Parameter(data=torch.zeros(1), requires_grad=True)
+
+        self.scale = torch.nn.Parameter(data=torch.ones(1), requires_grad=True)
+
+        self.activation = torch.nn.LeakyReLU(inplace=False)
+
+        
+        self.skip_conv = torch.nn.Conv3d(
+            in_channels=in_channels,
+            out_channels=out_channels,
+            kernel_size=3,
+            stride=1,
+            padding=1,
+            bias=False,
+        )
+
+        self.conv1 = torch.nn.Conv3d(
+            in_channels=in_channels,
+            out_channels=out_channels,
+            kernel_size=3,
+            stride=1,
+            padding=1,
+            bias=False,
+        )
+
+        self.conv2 = torch.nn.Conv3d(
+            in_channels=out_channels,
+            out_channels=out_channels,
+            kernel_size=3,
+            stride=1,
+            padding=1,
+            bias=False,
+        )
+
+        self.nca = torch.nn.Sequential(
+            torch.nn.ConstantPad3d(padding=(1, 0, 1, 0, 1, 0), value=0),
+            torch.nn.AvgPool3d(kernel_size=2, stride=1),
+        )
+
+     def initialize_weights(self, num_layers):
+
+        torch.nn.init.normal_(
+            tensor=self.conv1.weight,
+            mean=0,
+            std=np.sqrt(
+                2 / (self.conv1.weight.shape[0] * np.prod(self.conv1.weight.shape[2:]))
+            )
+            * num_layers ** (-0.5),
+        )
+        torch.nn.init.constant_(tensor=self.conv2.weight, val=0)
+        torch.nn.init.normal_(
+            tensor=self.skip_conv.weight,
+            mean=0,
+            std=np.sqrt(
+                2
+                / (
+                    self.skip_conv.weight.shape[0]
+                    * np.prod(self.skip_conv.weight.shape[2:])
+                )
+            ),
+        )
+
+
+    def forward(self, input):
+        out = self.conv1(input + self.bias1a)
+        out = self.nca(self.activation(out + self.bias1b))
+
+        out = self.conv2(out + self.bias2a)
+        out = out * self.scale + self.bias2b
+
+        out += self.nca(self.skip_conv(input + self.bias1a))
+        out = self.activation(out)
+
+        return out
+
 class ResBlock(nn.Module):
     def __init__(self, in_channel, channel):
         super().__init__()
@@ -142,10 +227,11 @@ class Encoder(nn.Module):
         channel,
         n_res_block,
         n_res_channel,
-        stride=2
+        stride=2,
+        res=FixupBlock
     ):
         super().__init__()
-
+        num_layers = 10
         if stride == 4:
             blocks = [
                 nn.Conv3d(in_channel, channel // 2, 4, stride=2, padding=1),
@@ -163,11 +249,15 @@ class Encoder(nn.Module):
             ]
 
         for i in range(n_res_block):
-            blocks.append(ResBlock(channel, n_res_channel))
+            blocks.append(res(channel, n_res_channel))
 
         blocks.append(nn.ReLU(inplace=True))
 
         self.blocks = nn.Sequential(*blocks)
+
+        for m in self.blocks():
+            if isinstance(m, FixupBlock):
+                m.initialize_weights(num_layers=num_layers)
 
     def forward(self, data):
         return self.blocks(data)
@@ -180,14 +270,15 @@ class Decoder(nn.Module):
         channel,
         n_res_block,
         n_res_channel,
-        stride=2
+        stride=2,
+        res=FixupBlock
     ):
         super().__init__()
-
+        num_layers = 10
         blocks = [nn.Conv3d(in_channel, channel, 3, padding=1)]
 
         for i in range(n_res_block):
-            blocks.append(ResBlock(channel, n_res_channel))
+            blocks.append(res(channel, n_res_channel))
 
         blocks.append(nn.ReLU(inplace=True))
 
@@ -208,6 +299,10 @@ class Decoder(nn.Module):
             )
 
         self.blocks = nn.Sequential(*blocks)
+
+        for m in self.blocks():
+            if isinstance(m, FixupBlock):
+                m.initialize_weights(num_layers=num_layers)
 
     def forward(self, input):
         return self.blocks(input)
