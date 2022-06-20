@@ -31,6 +31,24 @@ def shift_dim(x, src_dim=-1, dest_dim=-1, make_contiguous=True):
         x = x.contiguous()
     return x
 
+def view_range(x, i, j, shape):
+    shape = tuple(shape)
+
+    n_dims = len(x.shape)
+    if i < 0:
+        i = n_dims + i
+
+    if j is None:
+        j = n_dims
+    elif j < 0:
+        j = n_dims + j
+
+    assert 0 <= i < j <= n_dims
+
+    x_shape = x.shape
+    target_shape = x_shape[:i] + shape + x_shape[j:]
+    return x.view(target_shape)
+
 class SamePadConv3d(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size, stride=1, bias=True):
         super().__init__()
