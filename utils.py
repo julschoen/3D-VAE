@@ -127,7 +127,7 @@ class AxialBlock(nn.Module):
         return x
 
 class AttentionResidualBlock(nn.Module):
-    def __init__(self, in_chhannel, n_hiddens):
+    def __init__(self, in_channel, n_hiddens):
         super().__init__()
         self.block = nn.Sequential(
             nn.BatchNorm3d(in_channel),
