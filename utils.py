@@ -55,8 +55,7 @@ class FixupBlock(torch.nn.Module):
             torch.nn.AvgPool3d(kernel_size=2, stride=1),
         )
 
-     def initialize_weights(self, num_layers):
-
+    def initialize_weights(self, num_layers):
         torch.nn.init.normal_(
             tensor=self.conv1.weight,
             mean=0,
@@ -77,7 +76,6 @@ class FixupBlock(torch.nn.Module):
                 )
             ),
         )
-
 
     def forward(self, input):
         out = self.conv1(input + self.bias1a)
