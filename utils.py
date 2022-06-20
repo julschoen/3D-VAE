@@ -49,6 +49,22 @@ def view_range(x, i, j, shape):
     target_shape = x_shape[:i] + shape + x_shape[j:]
     return x.view(target_shape)
 
+def scaled_dot_product_attention(q, k, v, mask=None, attn_dropout=0., training=True):
+    # Performs scaled dot-product attention over the second to last dimension dn
+
+    # (b, n_head, d1, ..., dn, d)
+    attn = torch.matmul(q, k.transpose(-1, -2))
+    attn = attn / np.sqrt(q.shape[-1])
+    if mask is not None:
+        attn = attn.masked_fill(mask == 0, float('-inf'))
+    attn_float = F.softmax(attn, dim=-1)
+    attn = attn_float.type_as(attn) # b x n_head x d1 x ... x dn x d
+    attn = F.dropout(attn, p=attn_dropout, training=training)
+
+    a = torch.matmul(attn, v) # b x n_head x d1 x ... x dn x d
+
+    return a
+
 class SamePadConv3d(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size, stride=1, bias=True):
         super().__init__()
