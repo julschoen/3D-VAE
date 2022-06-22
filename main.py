@@ -4,7 +4,7 @@ import argparse
 
 def main():
 	parser = argparse.ArgumentParser()
-	parser.add_argument('--niters', type=int, default=50000, help='Number of training iterations')
+	parser.add_argument('--niters', type=int, default=10000, help='Number of training iterations')
 	parser.add_argument('--batch_size', type=int, default=16, help='Batch size')
 	parser.add_argument('--z_size', type=int, default=8, help='Latent space dimension')
 	parser.add_argument('--K', type=int, default=256, help='Codebook Size')
